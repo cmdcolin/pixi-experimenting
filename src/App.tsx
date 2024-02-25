@@ -1,35 +1,48 @@
-import './App.css'
+import fragment from './shader.glsl'
+import * as PIXI from 'pixi.js'
 
-import { NoiseFilter } from 'pixi.js';
-import { Stage, Sprite } from '@pixi/react';
-import { useMemo } from 'react';
+/**
+ * Please note that this is not the most optimal way of doing pure shader
+ * generated rendering and should be used when the scene is wanted as input
+ * texture. Check the mesh version of example for more performant version if
+ * you need only shader generated content.
+ **/
+const app = new PIXI.Application({ background: '#ccc', resizeTo: window })
 
-export const MyComponent = () => {
-  const noiseFilter = useMemo(() => new NoiseFilter(100), []);
+document.body.appendChild(app.view)
 
-  return (
-    <Stage options={{ hello: true }}>
-      <Sprite
-        image="https://pixijs.io/pixi-react/img/bunny.png"
-        x={400}
-        y={270}
-        width={500}
-        height={500}
-        anchor={{ x: 0.5, y: 0.5 }}
-        filters={[noiseFilter]}
-      />
+PIXI.Assets.load('/cat.jpg').then(onAssetsLoaded)
 
-    </Stage>
-  );
-};
+// const text = new PIXI.Text('cat', { fill: 0xffffff, fontSize: 1000 })
 
-function App() {
+// text.anchor.set(0.5, 0.5)
+// text.position.set(app.renderer.screen.width / 2, app.renderer.screen.height / 2)
 
-  return (
-    <>
-      <MyComponent />
-    </>
-  )
+// app.stage.addChild(text)
+
+let totalTime = 0
+
+function onAssetsLoaded(perlin: PIXI.ResolvedAsset) {
+  // Add perlin noise for filter, make sure it's wrapping and does not have
+  // mipmap.
+  perlin.baseTexture.wrapMode = PIXI.WRAP_MODES.CLAMP
+  perlin.baseTexture.mipmap = false
+
+  // Build the filter
+  const filter = new PIXI.Filter(undefined, fragment, {
+    time: 0.0,
+    noise: perlin,
+  })
+  app.stage.filterArea = app.renderer.screen
+  const n = new PIXI.NoiseFilter(100)
+  app.stage.filters = [n, filter]
+
+  app.ticker.add(delta => {
+    filter.uniforms.time = totalTime
+    totalTime += delta / 60
+  })
 }
 
-export default App
+export default () => {
+  return <div />
+}
